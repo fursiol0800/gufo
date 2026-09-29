@@ -202,6 +202,7 @@ void CheckImageSnapshotAttachment(const std::shared_ptr<qfn::Model>& model) {
     for (std::size_t i = blue ? 2 : 0; i < pixels.pixels.size(); i += 3)
       pixels.pixels[i] = 255;
     prompt->images.push_back({std::move(pixels), grid});
+    prompt->images.back().prefix_identity.fill(blue ? 2 : 1);
     prompt->cache_identity.assign(32, blue ? 2 : 1);
     return prompt;
   };
@@ -423,7 +424,14 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
     Require(snapshot && batched.back()->RestoreSnapshot(*snapshot, &error),
             error);
     std::vector<sampling::TokenId> history(prompt.begin(), prompt.end());
-    const auto config = cases[(i * 3) % cases.size()].config;
+    auto config = cases[(i * 3) % cases.size()].config;
+    if (i % 2 == 0) {
+      config.temperature = 0;
+      config.repeat_penalty = i == 0 ? 0.7F : 1.3F;
+      config.repeat_last_n = 3;
+      config.frequency_penalty = i == 0 ? -0.4F : 0.2F;
+      config.presence_penalty = i == 0 ? -1.5F : 1.5F;
+    }
     serial_samplers.emplace_back(config, history);
     batch_samplers.emplace_back(config, history);
   }
